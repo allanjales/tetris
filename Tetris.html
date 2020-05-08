@@ -1,0 +1,734 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tetris</title>
+<meta name="author" content="Allan Jales https://github.com/allanjales/">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<style>
+.background{
+	position: fixed;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -100;
+	background-image: linear-gradient(90deg, #EEE 0%, #FFF 50%, #EEE 100%);
+}
+
+*{
+	user-select: none;
+}
+body{
+	margin: 0;
+}
+canvas{
+	image-rendering: pixelated;
+	image-rendering: crisp-edges;
+	image-rendering: -moz-crisp-edges;
+}
+.holder{
+	margin: 10px;
+	background-color: #DDD;
+	padding: 10px;
+	border-width: 4px;
+	border-style: outset;
+}
+#screen{
+	border-width: 4px;
+	border-style: inset;
+}
+.title{
+	text-transform: uppercase;
+	font-size: 18px;
+	margin-bottom: 0;
+	font-weight: bold;
+}
+.score{
+	background-color: #333;
+	color: #fff;
+	font-family: monospace;
+	font-size: 32px;
+	border-radius: 5px;
+	border-style: inset;
+	text-align: center;
+}
+.side{
+	display: flex;
+	align-items: flex-start;
+  	flex-direction: column;
+}
+.side>*{
+	width: 100%;
+}
+
+kbd{
+	background-color: #333;
+}
+.keys{
+	margin-bottom: 2px;
+}
+.keys-title{
+	font-weight: bold;
+	margin-bottom: 6px;
+}
+.keys kbd+kbd{
+	margin-left: 2px;
+}
+
+.button-holder{
+	margin-top: auto;
+	display: flex;
+	justify-content: space-between;
+}
+.button{
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 92px;
+	height: 92px;
+	background-color: #BBB;
+	border-radius: 50%;
+}
+.button-text{
+	font-family: monospace;
+	font-size: 42px;
+	color: #fff;
+}
+</style>
+
+</head>
+
+<body>
+	<div class="background"></div>
+	<main class="container">
+		<div class="m-auto" style="width: max-content">
+			<div class="holder">
+				<div class="row m-0">
+					<div class="side p-2" hidden>
+						<div class="button-holder">
+							<div class="button">
+								<div class="button-text">&#10553;</div>
+							</div>
+							<div class="button">
+								<div class="button-text">&loarr;</div>
+							</div>
+						</div>
+					</div>
+					<canvas id="screen" width="320" height="640" oncontextmenu="return false;"></canvas>
+					<div class="side ml-2">
+						<div>
+							<p class="title text-center">Next</p>
+							<div class="d-flex p-1 rounded-circle" style="background-color: #BBB;">
+								<div class="d-flex p-1 rounded-circle" style="background-color: #CCC;">
+									<canvas id="next" width="96" height="96" oncontextmenu="return false;"></canvas>
+								</div>
+							</div>
+						</div>
+						<div>
+							<p class="title text-center mt-3">Score</p>
+							<p id="score" class="score">0000</p>
+						</div>
+						<div>
+							<p class="keys-title mt-3">How to play</p>
+							<p class="keys" style="margin-left: 23px"><kbd>&uarr;</kbd> Rotate</p>
+							<p class="keys"><kbd>&larr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> Move</p>
+							<p class="keys"><kbd>Space</kbd> Begin</p>
+						</div>
+						<div class="button-holder" hidden>
+							<div class="button">
+								<div class="button-text">&#10552;</div>
+							</div>
+							<div class="button">
+								<div class="button-text">&roarr;</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="button-holder mt-2" hidden>
+					<div class="button">
+						<div id="ArrowLeft" class="button-text">&loarr;</div>
+					</div>
+					<div class="button">
+						<div id="KeyQ" class="button-text">&#10553;</div>
+					</div>
+					<div class="button">
+						<div id="KeyE" class="button-text">&#10552;</div>
+					</div>
+					<div class="button">
+						<div id="ArrowRight" class="button-text">&roarr;</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+</body>
+</html>
+
+<script type="text/javascript">
+
+	const canvas = document.getElementById("screen");
+	const ctx = canvas.getContext("2d");
+	const canvasNext = document.getElementById("next");
+	const ctxNext = canvasNext.getContext("2d");
+
+	const debug = {
+		drawPivot: false,
+		stopDescent: false
+	}
+
+	function handleKeydown(event)
+	{
+		const moveFunction = acceptedMoves[event.code]
+		
+		if (moveFunction)
+		{
+			moveFunction();
+		}
+	}
+
+	const acceptedMoves = 
+	{
+		ArrowUp()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.rotate();
+		},
+		ArrowDown()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.moveDown();
+		},
+		ArrowLeft()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.moveLeft();
+		},
+		ArrowRight()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.moveRight();
+		},
+		Space()
+		{
+			if (game.over)
+			{
+				game.removeAllBlocks();
+				game.over = false;
+				game.score = 0;
+				game.scoreUpdate();
+			}
+			else
+			{
+				const object = game.activeObject;
+
+				if (object)
+					object.toBottom();
+
+				game.convertToBlocks();
+				game.removeFilledLines();
+				game.switchObject();
+			}
+		},
+		KeyR()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.rotate();
+		},
+		KeyQ()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.rotate(-1);
+		},
+		KeyE()
+		{
+			const object = game.activeObject;
+
+			if (object)
+				object.rotate(1);
+		}
+	}
+
+	document.addEventListener("keydown", handleKeydown);
+
+
+	const game = {
+		grid: 32,
+		blocks: [],
+		activeObject: null,
+		nextObject: null,
+		score: 0,
+		over: false,
+		switchActiveObject: function()
+		{
+			this.activeObject = this.nextObject;
+			this.switchNextObject();
+		},
+		switchNextObject: function()
+		{
+			let id = Math.floor(Math.random()*objectParametersList.length);
+			let parameters = JSON.parse(JSON.stringify(objectParametersList[id]));
+
+			this.nextObject = new object(parameters[0], parameters[1], parameters[2], parameters[3]);
+			this.nextObject.setInitialPosition();
+		},
+		switchObject: function()
+		{
+			if (!this.nextObject)
+				this.switchActiveObject();
+
+			this.switchActiveObject();
+		},
+		getHorizontalCells: function()
+		{
+			return Math.floor(canvas.width/this.grid);
+		},
+		getVerticalCells: function()
+		{
+			return Math.floor(canvas.height/this.grid);
+		},
+		convertToBlocks: function()
+		{
+			if (this.activeObject)
+			{
+				for (const block of this.activeObject.blocks)
+				{
+					this.blocks.push({
+						x: block.x,
+						y: block.y,
+						color: this.activeObject.color
+					});
+				}
+
+				this.activeObject = null;
+			}
+		},
+		isLineFilled: function(line)
+		{
+			let horizontalCells = this.getHorizontalCells();
+
+			let blocksCount = 0;
+
+			for (const block of this.blocks)
+			{
+				if (block.y == line)
+					blocksCount++;
+			}
+
+			if (blocksCount >= horizontalCells)
+				return true;
+
+			return false;
+		},
+		moveDownBlocksAbove: function(line)
+		{
+			for (const block of this.blocks)
+			{
+				if (block.y < line)
+					block.y++;
+			}
+		},
+		removeLine: function(line)
+		{
+			for (let i = 0; i < this.blocks.length; i++)
+			{
+				if (this.blocks[i].y == line)
+				{
+					this.blocks.splice(i, 1);
+					i--;
+				}
+			}
+
+			game.score++;
+			this.scoreUpdate();
+
+			this.moveDownBlocksAbove(line);
+		},
+		removeFilledLines: function()
+		{
+			let verticalCells = this.getVerticalCells();
+
+			for (let i = 0; i < verticalCells; i++)
+			{
+				if (this.isLineFilled(i))
+				{
+					this.removeLine(i);
+					i--;
+				}
+			}
+		},
+		descent: function()
+		{
+			if (debug.stopDescent == false)
+			{
+				if (this.activeObject && !this.activeObject.moveDown())
+				{
+					if (this.activeObject.canMove(0,0) && !this.over)
+					{
+						this.convertToBlocks();
+						this.removeFilledLines();
+						this.switchObject();
+					}
+					else
+					{
+						this.convertToBlocks();
+						this.over = true;
+					}
+				}
+			}
+		},
+		removeAllBlocks: function()
+		{
+			this.blocks.splice(0, this.blocks.length);
+		},
+		scoreUpdate()
+		{
+			document.getElementById('score').innerHTML = game.score.toString().padStart(4, '0');
+		}
+	}
+
+	setInterval(function() {game.descent();}, 500);
+
+	function object(name, color, blocks, pivots)
+	{
+		const object =
+		{
+			name: name,
+			color: color,
+			blocks: blocks,
+			pivots: pivots,
+			getWidth: function()
+			{
+				let minX = null;
+				let maxX = null;
+
+				for (const block of this.blocks)
+				{
+					if (block.x < minX || minX == null)
+					{
+						minX = block.x;
+					}
+
+					if (block.x > maxX || maxX == null)
+					{
+						maxX = block.x;
+					}
+				}
+
+				return maxX - minX + 1;
+			},
+			getHeight: function()
+			{
+				let minY = null;
+				let maxY = null;
+
+				for (const block of this.blocks)
+				{
+					if (block.y < minY || minY == null)
+					{
+						minY = block.y;
+					}
+
+					if (block.y > maxY || maxY == null)
+					{
+						maxY = block.y;
+					}
+				}
+
+				return maxY - minY + 1;
+			},
+			setInitialPosition: function()
+			{
+				let horizontalCells = game.getHorizontalCells();
+
+				let width = this.getWidth();
+				let height = this.getHeight();
+
+				let middleScreen = Math.floor(horizontalCells/2);
+				let middleObject = Math.ceil(width/2);
+
+				for (const block of this.blocks)
+				{
+					block.x += middleScreen - middleObject;
+					block.y -= height;
+				}
+
+				for (const pivot of this.pivots)
+				{
+					pivot.x += middleScreen - middleObject;
+					pivot.y -= height;
+				}
+			},
+			rotate: function(direction = 1, forceRotation = false)
+			{
+				direction = direction/Math.abs(direction);
+
+				if (direction >= 0)
+					direction = pivots[0].cw;
+				else
+					direction = pivots[0].acw;
+
+				let angle = direction*Math.PI/2;
+
+				for (const block of this.blocks)
+				{
+					block.x -= this.pivots[0].x;
+					block.y -= this.pivots[0].y;
+					if (direction == -1)
+						block.x -= -1;
+
+					let oldX = block.x;
+					let oldY = block.y;
+
+					block.x = Math.cos(angle)*oldX - Math.sin(angle)*oldY;
+					block.y = Math.sin(angle)*oldX + Math.cos(angle)*oldY;
+
+					block.x += this.pivots[0].x;
+					block.y += this.pivots[0].y;
+					if (direction == 1)
+						block.x += -1;
+
+					block.x = Math.round(block.x);
+					block.y = Math.round(block.y);
+				}
+
+				this.pivots.push(pivots[0]);
+				this.pivots.shift();
+
+				if (forceRotation == false)
+				{
+					for (const block of this.blocks)
+					{
+						if (!this.canMove(0,0))
+						{
+							this.rotate(-direction, true)
+							break;
+						}
+					}
+				}
+			},
+			canMove: function(x, y, allowAbove = true)
+			{
+				let verticalCells = game.getVerticalCells();
+				let horizontalCells = game.getHorizontalCells();
+
+				for (const block of this.blocks)
+				{
+					if (block.x + x >= horizontalCells || block.x + x < 0)
+					{
+						return false;
+					}
+
+					if (block.y + y >= verticalCells || (block.y + y < 0 && !allowAbove))
+					{
+						return false;
+					}
+
+					for (const otherBlock of game.blocks)
+					{
+						if (block.x + x == otherBlock.x && block.y + y == otherBlock.y)
+						{
+							return false;
+						}
+					}
+				}
+
+				return true;
+			},
+			move: function(x = 0, y = 0)
+			{
+				if (this.canMove(x, y))
+				{
+					for (const block of this.blocks)
+					{
+						block.x += x;
+						block.y += y;
+					}
+
+					for (const pivot of this.pivots)
+					{
+						pivot.x += x;
+						pivot.y += y;
+					}
+					return true;
+				}
+				return false;
+			},
+			moveDown: function()
+			{
+				return this.move(0, 1);
+			},
+			moveLeft: function()
+			{
+				return this.move(-1);
+			},
+			moveRight: function()
+			{
+				return this.move(1);
+			},
+			toBottom: function()
+			{
+				while (this.move(0, 1));
+			}
+		}
+
+		return object;
+	}
+
+	const objectParametersList = [
+		["I", "#8EE", [{x:0,y:0}, {x:0,y:1}, {x:0,y:2}, {x:0,y:3}], [{x:0.5,y:2.5,cw:1,acw:1},{x:0.5,y:2.5,cw:-1,acw:-1}]],
+		["O", "#EE6", [{x:0,y:0}, {x:0,y:1}, {x:1,y:0}, {x:1,y:1}], [{x:1.0,y:1.0,cw:1,acw:-1}]],
+		["T", "#E96", [{x:1,y:0}, {x:0,y:1}, {x:1,y:1}, {x:2,y:1}], [{x:1.5,y:1.5,cw:1,acw:-1}]],
+		["J", "#55E", [{x:0,y:0}, {x:0,y:1}, {x:1,y:1}, {x:2,y:1}], [{x:1.5,y:1.5,cw:1,acw:-1}]],
+		["L", "#C8C", [{x:2,y:0}, {x:0,y:1}, {x:1,y:1}, {x:2,y:1}], [{x:1.5,y:1.5,cw:1,acw:-1}]],
+		["S", "#5A5", [{x:1,y:0}, {x:2,y:0}, {x:0,y:1}, {x:1,y:1}], [{x:1.5,y:0.5,cw:1,acw:1},{x:1.5,y:0.5,cw:-1,acw:-1}]],
+		["Z", "#C55", [{x:0,y:0}, {x:1,y:0}, {x:1,y:1}, {x:2,y:1}], [{x:1.5,y:0.5,cw:1,acw:1},{x:1.5,y:0.5,cw:-1,acw:-1}]],
+	]
+
+	function drawBlock(block, color, context = ctx, grid = game.grid)
+	{
+		context.beginPath();
+		context.fillStyle = color;
+		context.rect(block.x*grid, block.y*grid, grid, grid);
+		context.fill();
+
+		//Beauty
+		context.globalAlpha = 0.05;
+		context.beginPath();
+		context.fillStyle = "#000";
+		context.moveTo((block.x+1)*grid, (block.y+0)*grid);
+		context.lineTo((block.x+1)*grid, (block.y+1)*grid);
+		context.lineTo((block.x+0)*grid, (block.y+1)*grid);
+		context.closePath();
+		context.fill();
+
+		context.beginPath();
+		context.strokeStyle = "#000";
+		context.rect(block.x*grid, block.y*grid, grid, grid);
+		context.stroke();
+
+		context.globalAlpha = 1.0;
+	}
+
+	function drawNextObject()
+	{
+		//Clear canvas
+		ctxNext.clearRect(0, 0, canvasNext.width, canvasNext.height);
+
+		//Draw background
+		ctxNext.globalAlpha = 0.05;
+		ctxNext.fillStyle = "#000";
+		ctxNext.beginPath();
+		ctxNext.arc(canvasNext.width/2, canvasNext.height/2, canvasNext.width/2, 0/4*Math.PI, 4/4*Math.PI);
+		ctxNext.fill();
+		ctxNext.globalAlpha = 1.0;
+
+		if (game.nextObject)
+		{
+			//Get index in ParametersList
+			let index = objectParametersList.findIndex(x => x[0] === game.nextObject.name);
+			let parameters = JSON.parse(JSON.stringify(objectParametersList[index]));
+
+			const obj = new object(parameters[0], parameters[1], parameters[2], parameters[3]);
+
+			let width  = obj.getWidth();
+			let height = obj.getHeight();
+
+			for (const block of obj.blocks)
+			{
+				block.x += 4/2 - width/2;
+				block.y += 4/2 - height/2;
+				drawBlock(block, obj.color, ctxNext, canvasNext.width/4)
+			}
+		}
+	}
+
+	renderScreen();
+
+	//Draw in canvas
+	function renderScreen()
+	{
+		//Clear canvas
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		//Draw background
+		ctx.beginPath();
+		ctx.fillStyle = "#333";
+		ctx.rect(0, 0, canvas.width, canvas.height);
+		ctx.fill();
+
+		//Grid
+		ctx.strokeStyle = "#555";
+		for (let i = 0; i <= canvas.width; i += game.grid)
+		{
+			ctx.beginPath();
+			ctx.moveTo(i, 0);
+			ctx.lineTo(i, canvas.height);
+			ctx.stroke();
+		}
+		for (let i = 0; i <= canvas.height; i += game.grid)
+		{
+			ctx.beginPath();
+			ctx.moveTo(0, i);
+			ctx.lineTo(canvas.width, i);
+			ctx.stroke();
+		}
+
+		//Draw blocks
+		for (const block of game.blocks)
+		{
+			drawBlock(block, block.color);
+		}
+
+		//Draw active object
+		if (game.activeObject)
+		{
+			for (const block of game.activeObject.blocks)
+			{
+				drawBlock(block, game.activeObject.color);
+			}
+
+			if (debug.drawPivot)
+			{
+				const pivot = game.activeObject.pivots[0];
+				ctx.fillStyle = "#F00";
+				ctx.beginPath();
+				ctx.arc(pivot.x*game.grid, pivot.y*game.grid, 5, 0, 2 * Math.PI);
+				ctx.fill();
+			}
+		}
+
+		if (game.over == true)
+		{
+			ctx.globalAlpha = 0.5;
+			ctx.fillStyle = "#000";
+			ctx.beginPath();
+			ctx.rect(0, canvas.height/2-42, canvas.width, 58);
+			ctx.fill();
+			ctx.globalAlpha = 1.0;
+
+			ctx.font = "42px Calibri";
+			ctx.fillStyle = "#fff";
+			ctx.textAlign = "center";
+			ctx.fillText("Game Over", canvas.width/2, canvas.height/2);
+		}
+
+		//Aside
+		drawNextObject();
+
+		//Recursive
+		requestAnimationFrame(renderScreen);
+	}
+</script>
